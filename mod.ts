@@ -97,7 +97,7 @@ export default class Loader {
   private async loadPluginsRecursively(directory: string): Promise<Plugin[]> {
     const plugins: Plugin[] = [];
     for await (const entry of Deno.readDir(directory)) {
-      const fullPath = `${directory}/${entry.name}`;
+      const fullPath = `${Deno.cwd()}/${directory}/${entry.name}`;
       if (entry.isDirectory) {
         // Recursively load plugins from subdirectories
         plugins.push(...await this.loadPluginsRecursively(fullPath));
