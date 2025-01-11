@@ -1,0 +1,24 @@
+{
+  "name": "deno-cms",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-toolsai.jupyter",
+        "justjavac.vscode-deno-extensionpack",
+        "vscode-icons-team.vscode-icons"
+      ],
+      "settings": {
+        "deno.enable": true,
+        "deno.lint": true,
+        "deno.unstable": ["kv"],
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.defaultFormatter": "denoland.vscode-deno"
+      }
+    }
+  }
+}
