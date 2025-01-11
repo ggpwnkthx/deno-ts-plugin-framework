@@ -1,5 +1,5 @@
 // ./types.ts
-import Loader from "./mod.ts";
+import type Loader from "./mod.ts";
 
 /**
  * Type representing a dependency that a plugin may have on another plugin or resource.

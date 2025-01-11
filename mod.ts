@@ -1,7 +1,7 @@
 // ./mod.ts
 import type { Plugin } from "./types.ts";
 import Registry from "./registry.ts";
-import { bold, cyan, green } from "jsr:@std/fmt/colors";
+import { bold, cyan, green } from "jsr:@std/fmt/colors@1.0.4";
 
 /**
  * The `Loader` class is responsible for managing the lifecycle of plugins,
