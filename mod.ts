@@ -3,6 +3,8 @@ import type { Plugin } from "./types.ts";
 import Registry from "./registry.ts";
 import { bold, cyan, green } from "jsr:@std/fmt@1.0.4/colors";
 
+export type { Plugin }
+
 /**
  * The `Loader` class is responsible for managing the lifecycle of plugins,
  * including registration, dependency resolution, initialization, and starting.

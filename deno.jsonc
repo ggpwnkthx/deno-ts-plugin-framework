@@ -1,6 +1,6 @@
 {
-    "name": "@ggpwnkthk/plugin-framework",
-    "version": "0.1.3",
-    "license": "MIT",
-    "exports": "./mod.ts"
-  }
+  "name": "@ggpwnkthk/plugin-framework",
+  "version": "0.1.4",
+  "license": "MIT",
+  "exports": "./mod.ts"
+}
