@@ -4,10 +4,8 @@ A modular, extensible framework for managing plugins with dependency resolution,
 
 ## Features
 
-- **Dynamic Plugin Registration**: Register plugins individually or in bulk.
 - **Dependency Management**: Automatically resolves and enforces dependencies between plugins.
 - **Lifecycle Management**: Ensures plugins are initialized and started in the correct order.
-- **Dynamic Loading**: Recursively loads plugins from specified directories.
 - **Type Safety**: Strong TypeScript types for plugins and dependencies.
 
 ## File Overview
@@ -68,15 +66,6 @@ import MyPlugin from "./plugins/my-plugin.ts";
 const app = new Loader({ server: "localhost:8080" }, [MyPlugin]);
 
 await app.start();
-```
-
-### 3. Dynamic Loading
-
-Place plugins in a `./plugins` directory. The `Loader` will recursively load `.ts` files as plugins:
-
-```typescript
-// ./main.ts
-new Loader().start();
 ```
 
 ## Example Project Structure

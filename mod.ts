@@ -60,15 +60,6 @@ export default class Loader {
    * 4. Calls the `afterInitAll` method on each plugin to finalize startup.
    */
   public async start() {
-    if (this.registry.all().length === 0) {
-      // Load plugins from the default plugins directory
-      const plugins = await this.loadPluginsRecursively(
-        `${Deno.cwd()}/plugins`,
-      );
-      console.log(plugins)
-      this.registerPlugins(plugins);
-    }
-
     // Sort plugins by their dependencies
     const sorted = this.sortByDependencies(this.registry.all());
 
@@ -87,31 +78,6 @@ export default class Loader {
         message && console.log("  " + message);
       }
     }
-  }
-
-  /**
-   * Recursively loads plugins from a given directory and its subdirectories.
-   * 
-   * @param directory - The directory to search for plugins.
-   * @returns A promise resolving to an array of loaded plugins.
-   */
-  private async loadPluginsRecursively(directory: string): Promise<Plugin[]> {
-    const plugins: Plugin[] = [];
-    for await (const entry of Deno.readDir(directory)) {
-      const fullPath = `${Deno.cwd()}/${directory}/${entry.name}`;
-      console.log(fullPath)
-      if (entry.isDirectory) {
-        // Recursively load plugins from subdirectories
-        plugins.push(...await this.loadPluginsRecursively(fullPath));
-      } else if (entry.isFile && entry.name.endsWith(".ts")) {
-        // Import the plugin module
-        const module = await import(fullPath);
-        if (module.default) {
-          plugins.push(module.default as Plugin); // Add the plugin to the list
-        }
-      }
-    }
-    return plugins;
   }
 
   /**
