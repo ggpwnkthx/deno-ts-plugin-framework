@@ -68,13 +68,28 @@ const app = new Loader({ server: "localhost:8080" }, [MyPlugin]);
 await app.start();
 ```
 
-## Example Project Structure
+### 3. Loading All Plugins in a Directory Recursively
+
+#### Example Project Structure
 
 ```
 ├── plugins/
 │   ├── plugin-a.ts
 │   └── plugin-b.ts
 └── main.ts
+```
+
+```typescript
+// ./main.ts
+import Loader from "./mod.ts";
+import { walk } from "jsr:@std/fs/walk";
+
+const plugins: Plugin[] = [];
+for await (const path of walk("./plugins")) {
+  path.isFile && plugins.push((await import(`./${path.path}`)).default);
+}
+
+await new Loader({ server: "localhost:8080" }, plugins).start();
 ```
 
 ## Contributing
