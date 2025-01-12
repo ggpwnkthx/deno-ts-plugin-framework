@@ -2,61 +2,117 @@
 
 A modular, extensible framework for managing plugins with dependency resolution, lifecycle management, and dynamic loading. This system is designed to simplify the process of working with plugins, ensuring they are initialized, started, and resolved in the correct order.
 
-## Features
-
-- **Dependency Management**: Automatically resolves and enforces dependencies between plugins.
-- **Lifecycle Management**: Ensures plugins are initialized and started in the correct order.
-- **Type Safety**: Strong TypeScript types for plugins and dependencies.
-
-## File Overview
-
-### `mod.ts`
-Contains the `Loader` class, which:
-- Manages the lifecycle of plugins.
-- Provides methods for registering and initializing plugins.
-- Handles dependency resolution and dynamic plugin loading.
-
-### `registry.ts`
-Defines the `Registry` class, responsible for:
-- Storing and managing registered plugins.
-- Ensuring unique plugin registration.
-- Allowing retrieval of plugins by name or as a list.
-
-### `types.ts`
-Defines core TypeScript types, including:
-- `Plugin`: Represents a plugin with optional dependencies, initialization, and lifecycle methods.
-- `Dependency`: Represents a dependency required by a plugin.
-
 ## Usage
 
-### 1. Creating a Plugin
+### Example Project Structure
+
+```
+├── plugins/
+│   ├── errors.ts
+│   └── logging.ts
+│   └── oak.ts
+└── main.ts
+```
+
+### Creating Plugins
 
 Define a plugin by implementing the `Plugin` interface:
 
+#### Basic
+
 ```typescript
-// ./plugins/my-plugin.ts
-import { Plugin } from "./types.ts";
-
+// ./plugins/oak.ts
+import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@1.0.0";
+import { Application } from "jsr:@oak/oak";
+import { bold, yellow } from "jsr:@std/fmt/colors";
 export default {
-  name: "my-plugin",
-  version: "1.0.0",
-  exports: {},
-
-  init: async (loader) => {
-    console.log("Initializing MyPlugin...");
-    return `MyPlugin initialized: ${loader.config.server} `;
+  name: "oak", // Unique name for the plugin
+  version: "0.0.1",
+  exports: new Application(), // Standard property name for accessible objects
+  init() {
+    this.exports.use(async (ctx, next) => {
+      ctx.response.body = "Hello, World!";
+      await next();
+    });
   },
+  afterInitAll(context) {
+    this.exports.listen(context.config.server);
+    return bold("🚀 Server is running on ") +
+      yellow(`http://${context.config.server}`);
+  },
+} satisfies Plugin<Application>;
+```
 
-  afterInitAll: (loader) => {
-    console.log("Finalizing MyPlugin setup...");
-    return "MyPlugin started.";
+#### Dependency
+
+```typescript
+// ./plugins/logging.ts
+import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@1.0.0";
+import { bold, cyan, green } from "jsr:@std/fmt/colors";
+import app from "./oak.ts";
+export default {
+  name: "oak_logging",
+  version: "0.0.1",
+  dependsOn: [
+    { name: "oak" },
+  ],
+  exports: undefined,
+  init() {
+    app.exports.use(async (ctx, next) => {
+      const start = Date.now();
+      await next();
+      const ms = Date.now() - start;
+      console.log(
+        `${green(ctx.request.method)} ${cyan(ctx.request.url.toString())} - ${
+          bold(`${ms}ms`)
+        }`,
+      );
+    });
   },
 } satisfies Plugin;
 ```
 
-### 2. Loading Plugins
+#### Optional Dependancy
 
-Create an instance of Loader and register plugins:
+```typescript
+// ./plugins/errors.ts
+import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@1.0.0";
+import { bold, red } from "jsr:@std/fmt/colors";
+import app from "./oak.ts";
+import { HttpError } from "jsr:@oak/commons@1/http_errors";
+import { Status } from "jsr:@oak/commons@1/status";
+export default {
+  name: "oak_errors",
+  version: "0.0.1",
+  dependsOn: [
+    { name: "oak" },
+    { name: "oak_logging", optional: true },
+  ],
+  exports: undefined,
+  init() {
+    app.exports.use(async (oakContext, next) => {
+      try {
+        await next();
+      } catch (e) {
+        if (e instanceof HttpError) {
+          oakContext.response.status = e.status;
+          oakContext.response.body = e.expose
+            ? `${e.status} - ${e.message}`
+            : `${e.status} - ${Status[e.status]}`;
+        } else {
+          oakContext.response.status = 500;
+          oakContext.response.body = "500 - Internal Server Error";
+        }
+        console.error(red(bold("Error: ")), e);
+      }
+    });
+  },
+} satisfies Plugin;
+```
+
+### Loading Plugins
+
+#### Manually
 
 ```typescript
 // ./main.ts
@@ -68,20 +124,11 @@ const app = new Loader({ server: "localhost:8080" }, [MyPlugin]);
 await app.start();
 ```
 
-### 3. Loading All Plugins in a Directory Recursively
-
-#### Example Project Structure
-
-```
-├── plugins/
-│   ├── plugin-a.ts
-│   └── plugin-b.ts
-└── main.ts
-```
+#### Automatic
 
 ```typescript
 // ./main.ts
-import Loader from "./mod.ts";
+import Loader, { type Plugin } from "jsr:@ggpwnkthk/plugin-framework@1.0.0";
 import { walk } from "jsr:@std/fs/walk";
 
 const plugins: Plugin[] = [];
@@ -90,6 +137,15 @@ for await (const path of walk("./plugins")) {
 }
 
 await new Loader({ server: "localhost:8080" }, plugins).start();
+```
+
+```
+$ deno -RN main.ts
+Initializing plugin: oak
+Initializing plugin: oak_logging
+Initializing plugin: oak_errors
+Starting plugin: oak
+  🚀 Server is running on http://localhost:8080
 ```
 
 ## Contributing
