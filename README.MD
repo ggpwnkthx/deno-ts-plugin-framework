@@ -1,6 +1,13 @@
 # Plugin Loader Framework
 
-A modular, extensible framework for managing plugins with dependency resolution, lifecycle management, and dynamic loading. This system is designed to simplify the process of working with plugins, ensuring they are initialized, started, and resolved in the correct order.
+A lightweight, extensible plugin framework for building modular applications.
+
+## Features
+
+* Event-driven architecture
+* Dynamic plugin registration
+* Lifecycle management
+* Simple API
 
 ## Usage
 
@@ -22,113 +29,75 @@ Define a plugin by implementing the `Plugin` interface:
 
 ```typescript
 // ./plugins/oak.ts
-import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@1.0.0";
+import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.0.0";
 import { Application } from "jsr:@oak/oak";
 import { bold, yellow } from "jsr:@std/fmt/colors";
+
 export default {
-  name: "oak", // Unique name for the plugin
-  version: "0.0.1",
-  exports: new Application(), // Standard property name for accessible objects
-  init() {
-    this.exports.use(async (ctx, next) => {
+  name: "http_backend",
+  app: new Application(),
+  register() {
+    this.app.use(async (ctx, next) => {
       ctx.response.body = "Hello, World!";
       await next();
     });
   },
-  afterInitAll(context) {
-    this.exports.listen(context.config.server);
-    return bold("🚀 Server is running on ") +
-      yellow(`http://${context.config.server}`);
+  initialize() {
+    this.app.listen("0.0.0.0:8080");
+    console.log(
+      bold("🚀 Server is running on ") +
+        yellow(`http://0.0.0.0:8080`),
+    );
   },
-} satisfies Plugin<Application>;
+} as Plugin & { app: Application };
 ```
 
-#### Dependency
+#### Dependency Injection via Events
 
 ```typescript
 // ./plugins/logging.ts
-import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@1.0.0";
+import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.0.0";
 import { bold, cyan, green } from "jsr:@std/fmt/colors";
-import app from "./oak.ts";
-export default {
-  name: "oak_logging",
-  version: "0.0.1",
-  dependsOn: [
-    { name: "oak" },
-  ],
-  exports: undefined,
-  init() {
-    app.exports.use(async (ctx, next) => {
-      const start = Date.now();
-      await next();
-      const ms = Date.now() - start;
-      console.log(
-        `${green(ctx.request.method)} ${cyan(ctx.request.url.toString())} - ${
-          bold(`${ms}ms`)
-        }`,
-      );
-    });
-  },
-} satisfies Plugin;
-```
+import type OakPlugin from "./oak.ts"
 
-#### Optional Dependancy
-
-```typescript
-// ./plugins/errors.ts
-import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@1.0.0";
-import { bold, red } from "jsr:@std/fmt/colors";
-import app from "./oak.ts";
-import { HttpError } from "jsr:@oak/commons@1/http_errors";
-import { Status } from "jsr:@oak/commons@1/status";
 export default {
-  name: "oak_errors",
-  version: "0.0.1",
-  dependsOn: [
-    { name: "oak" },
-    { name: "oak_logging", optional: true },
-  ],
-  exports: undefined,
-  init() {
-    app.exports.use(async (oakContext, next) => {
-      try {
+  name: "http_backend_logger",
+  register(events) {
+    events.on<[typeof OakPlugin]>("plugin:http_backend:initializing", (plugin) => {
+      plugin.app.use(async (ctx, next) => {
+        const start = Date.now();
         await next();
-      } catch (e) {
-        if (e instanceof HttpError) {
-          oakContext.response.status = e.status;
-          oakContext.response.body = e.expose
-            ? `${e.status} - ${e.message}`
-            : `${e.status} - ${Status[e.status]}`;
-        } else {
-          oakContext.response.status = 500;
-          oakContext.response.body = "500 - Internal Server Error";
-        }
-        console.error(red(bold("Error: ")), e);
-      }
-    });
+        const ms = Date.now() - start;
+        console.log(
+          `${green(ctx.request.method)} ${cyan(ctx.request.url.toString())} - ${
+            bold(`${ms}ms`)
+          }`,
+        );
+      });
+    })
   },
-} satisfies Plugin;
+} as Plugin;
 ```
 
 ### Loading Plugins
 
-#### Manually
+#### Static
 
 ```typescript
 // ./main.ts
-import Loader from "./mod.ts";
-import MyPlugin from "./plugins/my-plugin.ts";
+import { Registry } from "jsr:@ggpwnkthk/plugin-framework@2.0.0";
+import PluginA from "./plugins/a.ts"
+import PluginD from "./plugins/d.ts"
+import PluginF from "./plugins/f.ts"
 
-const app = new Loader({ server: "localhost:8080" }, [MyPlugin]);
-
-await app.start();
+new Registry([PluginA, PluginF, PluginD])
 ```
 
-#### Automatic
+#### Dynamic
 
 ```typescript
 // ./main.ts
-import Loader, { type Plugin } from "jsr:@ggpwnkthk/plugin-framework@1.0.0";
+import { Registry, type Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.0.0";
 import { walk } from "jsr:@std/fs/walk";
 
 const plugins: Plugin[] = [];
@@ -136,16 +105,21 @@ for await (const path of walk("./plugins")) {
   path.isFile && plugins.push((await import(`./${path.path}`)).default);
 }
 
-await new Loader({ server: "localhost:8080" }, plugins).start();
+new Registry(plugins)
 ```
 
 ```
 $ deno -RN main.ts
-Initializing plugin: oak
-Initializing plugin: oak_logging
-Initializing plugin: oak_errors
-Starting plugin: oak
-  🚀 Server is running on http://localhost:8080
+Emitting event: plugin:http_backend:registering
+Emitting event: plugin:http_backend:registered
+Emitting event: plugin:http_backend_logger:registering
+Emitting event: plugin:http_backend_logger:registered
+Emitting event: core:registered
+Emitting event: core:initializing
+Emitting event: plugin:http_backend:initializing
+🚀 Server is running on http://0.0.0.0:8080
+Emitting event: plugin:http_backend:initialized
+Emitting event: core:initialized
 ```
 
 ## Contributing
