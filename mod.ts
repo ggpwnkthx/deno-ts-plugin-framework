@@ -221,7 +221,7 @@ export class Registry {
    *
    * @returns The map of registered plugins.
    */
-  get plugins() {
+  get plugins(): typeof this._plugins {
     return this._plugins;
   }
 
