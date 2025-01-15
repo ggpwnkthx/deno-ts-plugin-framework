@@ -1,5 +1,5 @@
-// ./example/main.ts
-import { Registry, type Plugin } from "../mod.ts";
+// ./examples/oak/main.ts
+import { Registry, type Plugin } from "../../mod.ts";
 import { walk } from "jsr:@std/fs/walk";
 
 const plugins: Plugin[] = [];

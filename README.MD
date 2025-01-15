@@ -11,13 +11,15 @@ A lightweight, extensible plugin framework for building modular applications.
 
 ## Usage
 
+See the `examples` directory for more use cases.
+
 ### Example Project Structure
 
 ```
 ├── plugins/
-│   ├── errors.ts
-│   └── logging.ts
-│   └── oak.ts
+│   ├── api.ts
+│   └── config.ts
+│   └── db.ts
 └── main.ts
 ```
 
@@ -28,53 +30,87 @@ Define a plugin by implementing the `Plugin` interface:
 #### Basic
 
 ```typescript
-// ./plugins/oak.ts
-import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.0.0";
-import { Application } from "jsr:@oak/oak";
-import { bold, yellow } from "jsr:@std/fmt/colors";
-
+// ./plugins/config.ts
+import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.1.0";
 export default {
-  name: "http_backend",
-  app: new Application(),
-  register() {
-    this.app.use(async (ctx, next) => {
-      ctx.response.body = "Hello, World!";
-      await next();
+  name: "ConfigPlugin",
+  initialize() {
+    console.log("[ConfigPlugin] Loading configuration...");
+    // For this example, assume config loaded instantly.
+    console.log("[ConfigPlugin] Configuration loaded.");
+  },
+} as Plugin;
+```
+
+#### Dependency Injection
+
+##### Single Dependency
+
+```typescript
+// ./plugins/db.ts
+import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.1.0";
+export default {
+  name: "DatabasePlugin",
+  register(events) {
+    // Wait for ConfigPlugin to be fully initialized before doing additional tasks.
+    events.on({
+      condition: "all",
+      events: ["plugin.ConfigPlugin.initialized"],
+      listener: (plugins) => {
+        const configPlugin = plugins.get("ConfigPlugin");
+        // Access configuration details from ConfigPlugin if needed.
+        console.log(
+          "[DatabasePlugin] Detected that ConfigPlugin is initialized. Reading configuration...",
+        );
+        // (Imagine reading a connection string or similar configuration here.)
+      },
+    });
+  },
+} as Plugin;
+```
+##### Multiple Dependencies
+
+```typescript
+// ./plugins/api.ts
+import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.1.0";
+export default {
+  name: "APIPlugin",
+  register(events) {
+    // Wait for both ConfigPlugin and DatabasePlugin to be initialized.
+    events.on({
+      condition: "all",
+      events: [
+        "plugin.ConfigPlugin.initialized",
+        "plugin.DatabasePlugin.initialized",
+      ],
+      listener: (plugins) => {
+        const configPlugin = plugins.get("ConfigPlugin");
+        const databasePlugin = plugins.get("DatabasePlugin");
+        console.log(
+          "[APIPlugin] Detected both Config and Database are ready.",
+        );
+        // Now, APIPlugin can use functionalities exposed by these plugins.
+        console.log(
+          "[APIPlugin] Setting up API endpoints using configuration and database connection.",
+        );
+      },
+    });
+
+    // Additionally, we could listen for any one event if we want an earlier reaction.
+    events.on({
+      condition: "any",
+      events: ["plugin.ConfigPlugin.initialized", "plugin.DatabasePlugin.initialized"],
+      listener: () => {
+        console.log(
+          "[APIPlugin] At least one dependency (Config or Database) is initialized so far.",
+        );
+      },
     });
   },
   initialize() {
-    this.app.listen("0.0.0.0:8080");
-    console.log(
-      bold("🚀 Server is running on ") +
-        yellow(`http://0.0.0.0:8080`),
-    );
-  },
-} as Plugin & { app: Application };
-```
-
-#### Dependency Injection via Events
-
-```typescript
-// ./plugins/logging.ts
-import type { Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.0.0";
-import { bold, cyan, green } from "jsr:@std/fmt/colors";
-import type OakPlugin from "./oak.ts"
-
-export default {
-  name: "http_backend_logger",
-  register(events) {
-    events.on<[typeof OakPlugin]>("plugin:http_backend:initializing", (plugin) => {
-      plugin.app.use(async (ctx, next) => {
-        const start = Date.now();
-        await next();
-        const ms = Date.now() - start;
-        console.log(
-          `${green(ctx.request.method)} ${cyan(ctx.request.url.toString())} - ${
-            bold(`${ms}ms`)
-          }`,
-        );
-      });
-    })
+    // API initialization steps that don't depend on the other plugins.
+    console.log("[APIPlugin] Initializing core API functionality...");
+    // More initialization logic could be here.
   },
 } as Plugin;
 ```
@@ -85,19 +121,19 @@ export default {
 
 ```typescript
 // ./main.ts
-import { Registry } from "jsr:@ggpwnkthk/plugin-framework@2.0.0";
-import PluginA from "./plugins/a.ts"
-import PluginD from "./plugins/d.ts"
-import PluginF from "./plugins/f.ts"
+import { Registry } from "jsr:@ggpwnkthk/plugin-framework@2.1.0";
+import APIPlugin from "./plugins/api.ts"
+import ConfigPlugin from "./plugins/config.ts"
+import DatabasePlugin from "./plugins/db.ts"
 
-new Registry([PluginA, PluginF, PluginD])
+new Registry([ConfigPlugin, DatabasePlugin, APIPlugin])
 ```
 
 #### Dynamic
 
 ```typescript
 // ./main.ts
-import { Registry, type Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.0.0";
+import { Registry, type Plugin } from "jsr:@ggpwnkthk/plugin-framework@2.1.0";
 import { walk } from "jsr:@std/fs/walk";
 
 const plugins: Plugin[] = [];
@@ -106,20 +142,6 @@ for await (const path of walk("./plugins")) {
 }
 
 new Registry(plugins)
-```
-
-```
-$ deno -RN main.ts
-Emitting event: plugin:http_backend:registering
-Emitting event: plugin:http_backend:registered
-Emitting event: plugin:http_backend_logger:registering
-Emitting event: plugin:http_backend_logger:registered
-Emitting event: core:registered
-Emitting event: core:initializing
-Emitting event: plugin:http_backend:initializing
-🚀 Server is running on http://0.0.0.0:8080
-Emitting event: plugin:http_backend:initialized
-Emitting event: core:initialized
 ```
 
 ## Contributing
