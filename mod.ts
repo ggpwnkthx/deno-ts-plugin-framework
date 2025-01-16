@@ -198,7 +198,7 @@ export type Plugin = {
   /**
    * Optional method to initialize the plugin.
    */
-  initialize?(): void;
+  initialize?(plugins: Map<string, Plugin>): void;
 };
 
 /**
@@ -281,11 +281,11 @@ export class Registry {
    * initialization and calls the initialize method.
    */
   private initialize(): void {
-    for (const plugin of this._plugins.values()) {
+    for (const plugin of this.plugins.values()) {
       // If the plugin has an initialize function, perform initialization steps.
       if (plugin.initialize) {
         this.events.emit(`plugin.${plugin.name}.initializing`);
-        plugin.initialize();
+        plugin.initialize(this.plugins);
       }
       // Emit an event indicating that the plugin has been initialized.
       this.events.emit(`plugin.${plugin.name}.initialized`);
